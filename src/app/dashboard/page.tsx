@@ -43,16 +43,17 @@ export default async function DashboardPage() {
     }),
     Siparis.countDocuments({
       siparisTarihi: { $gte: ayBasi, $lte: aySonu },
+      durum: { $ne: "iptal" },
     }),
     Siparis.aggregate([
-      { $match: { siparisTarihi: { $gte: ayBasi, $lte: aySonu } } },
+      { $match: { siparisTarihi: { $gte: ayBasi, $lte: aySonu }, durum: { $ne: "iptal" } } },
       { $group: { _id: null, toplam: { $sum: "$toplamTutar" } } },
     ]).then((r) => (r[0]?.toplam ?? 0)),
     Urun.countDocuments({ stok: { $lt: 5 } }),
     TedarikSiparis.countDocuments({ durum: "beklemede" }),
     Urun.countDocuments(),
     (await import("@/features/musteri/queries")).Musteri.countDocuments(),
-    Siparis.countDocuments(),
+    Siparis.countDocuments({ durum: { $ne: "iptal" } }),
   ]);
 
   const cards = [

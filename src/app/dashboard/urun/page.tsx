@@ -384,6 +384,9 @@ function ProductCard({ urun, onEdit }: { urun: Urun; onEdit: (u: Urun) => void }
         <p className={`text-xs ${urun.stok > 0 ? "text-zinc-500" : "text-red-400"}`}>
           Stok: {urun.stok}
         </p>
+        {urun.warrantyPeriodMonths > 0 && (
+          <p className="text-xs text-zinc-500">Garanti: {formatWarrantyPeriod(urun.warrantyPeriodMonths)}</p>
+        )}
       </div>
     </div>
   );

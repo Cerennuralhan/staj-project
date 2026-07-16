@@ -17,10 +17,15 @@ export default async function SiparisDetayPage({
   const siparis: any = _siparis;
 
   await connectDB();
-  const [kurulumlar, garantiler] = await Promise.all([
+  const [kurulumlar, rawGarantiler] = await Promise.all([
     Kurulum.find({ siparisId: id }).lean(),
-    Garanti.find({ siparisId: id }).lean(),
+    Garanti.find({ siparisId: id }).populate("urunId", "urunAdi kapakResmi").lean(),
   ]);
+
+  const garantiler = rawGarantiler.map((g: any) => {
+    const kalanGun = Math.ceil((new Date(g.garantiBitis).getTime() - Date.now()) / 86400000);
+    return { ...g, durum: kalanGun >= 0 ? "aktif" : "suresi_doldu", kalanGun: Math.max(kalanGun, 0) };
+  });
 
   const durumRenk: Record<string, string> = {
     beklemede: "text-yellow-400", onaylandi: "text-blue-400",
@@ -117,8 +122,11 @@ export default async function SiparisDetayPage({
           <div className="space-y-2">
             {garantiler.map((g: any) => (
               <div key={g._id} className="flex justify-between items-center p-3 rounded bg-zinc-800/50">
-                <p className="text-sm text-zinc-300">{new Date(g.garantiBaslangic).toLocaleDateString("tr-TR")} — {new Date(g.garantiBitis).toLocaleDateString("tr-TR")}</p>
-                <span className={`text-xs font-medium ${g.durum === "aktif" ? "text-green-400" : "text-red-400"}`}>{g.durum}</span>
+                <div className="flex-1">
+                  <p className="text-sm text-white font-medium">{g.urunId?.urunAdi || "Ürün"}</p>
+                  <p className="text-xs text-zinc-400">{new Date(g.garantiBaslangic).toLocaleDateString("tr-TR")} — {new Date(g.garantiBitis).toLocaleDateString("tr-TR")}</p>
+                </div>
+                <span className={`text-xs font-medium ${g.durum === "aktif" ? "text-green-400" : "text-red-400"}`}>{g.durum === "aktif" ? "Aktif" : "Süresi Doldu"}</span>
               </div>
             ))}
           </div>

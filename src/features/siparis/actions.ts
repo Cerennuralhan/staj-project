@@ -9,6 +9,9 @@ import { logIslem } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
 import { Kurulum } from "@/features/kurulum/queries";
 import { checkAndDecrementStock, restoreStock } from "@/features/urun/queries";
+import { Garanti } from "@/features/garanti/queries";
+import { Urun } from "@/features/urun/queries";
+import { calculateWarrantyEndDate } from "@/lib/warranty/calculateWarrantyEndDate";
 
 /* ---------- SiparisNo üreteci ---------- */
 
@@ -162,6 +165,32 @@ export async function updateSiparisDurumAction(id: string, yeniDurum: string) {
     await restoreStock(siparis.urunler);
   }
 
+  // Teslim edildi ise her ürün için garanti oluştur (varsa atla)
+  if (yeniDurum === "teslim_edildi") {
+    for (const u of siparis.urunler) {
+      const existingGaranti = await Garanti.findOne({
+        siparisId: id,
+        urunId: u.urunId,
+      }).lean();
+
+      if (!existingGaranti) {
+        const urunDoc = await Urun.findById(u.urunId).lean();
+        const warrantyMonths = (urunDoc as any)?.warrantyPeriodMonths ?? 24;
+        if (warrantyMonths > 0) {
+          const baslangic = new Date();
+          const bitis = calculateWarrantyEndDate(baslangic, warrantyMonths);
+          await Garanti.create({
+            siparisId: id,
+            musteriId: (siparis as any).musteriId,
+            urunId: u.urunId,
+            garantiBaslangic: baslangic,
+            garantiBitis: bitis,
+          });
+        }
+      }
+    }
+  }
+
   if (yeniDurum === "onaylandi") {
     const existing = await Kurulum.countDocuments({ siparisId: id });
     if (existing === 0) {
@@ -178,6 +207,10 @@ export async function updateSiparisDurumAction(id: string, yeniDurum: string) {
   await logIslem(authSession.user.id, "guncelle", "siparisler");
   revalidatePath("/dashboard/siparis");
   revalidatePath("/dashboard/siparis/" + id);
+  revalidatePath("/dashboard/garanti");
+  if ((siparis as any).musteriId) {
+    revalidatePath("/dashboard/musteri/" + (siparis as any).musteriId);
+  }
   return { success: true };
 }
 

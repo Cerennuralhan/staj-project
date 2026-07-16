@@ -75,14 +75,15 @@ export default async function MusteriDetayPage(props: {
 
   const { musteri, siparisler, kurulumlar, garantiler, garantiTalepleri } = data;
 
-  const toplamHarcama = siparisler.reduce((sum: number, s: any) => sum + (s.toplamTutar || 0), 0);
-  const bekleyenBakiye = siparisler.reduce((sum: number, s: any) => {
+  const gecerliSiparisler = siparisler.filter((s: any) => s.durum !== "iptal");
+  const toplamHarcama = gecerliSiparisler.reduce((sum: number, s: any) => sum + (s.toplamTutar || 0), 0);
+  const bekleyenBakiye = gecerliSiparisler.reduce((sum: number, s: any) => {
     const plan = s.odemePlani;
     if (!plan || !plan.taksitler) return sum + (s.toplamTutar || 0);
     const kalan = plan.taksitler.filter((t: any) => !t.odendiMi).reduce((a: number, t: any) => a + t.tutar, 0);
     return sum + kalan;
   }, 0);
-  const sonSiparis = siparisler.length > 0 ? siparisler[0].siparisTarihi : null;
+  const sonSiparis = gecerliSiparisler.length > 0 ? gecerliSiparisler[0].siparisTarihi : null;
   const aktifGarantiler = garantiler.filter((g: any) => g.durum === "aktif");
   const yaklasanGarantiler = aktifGarantiler.filter((g: any) => g.kalanGun <= 30);
 
@@ -124,7 +125,7 @@ export default async function MusteriDetayPage(props: {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <SummaryCard icon={<ShoppingCart size={20} />} label="Toplam Sipariş" value={siparisler.length} color="blue" />
+        <SummaryCard icon={<ShoppingCart size={20} />} label="Toplam Sipariş" value={gecerliSiparisler.length} color="blue" />
         <SummaryCard icon={<Wallet size={20} />} label="Toplam Harcama" value={formatCurrency(toplamHarcama)} color="green" />
         <SummaryCard icon={<CreditCard size={20} />} label="Bekleyen Bakiye" value={bekleyenBakiye > 0 ? formatCurrency(bekleyenBakiye) : "—"} color="purple" />
         <SummaryCard icon={<Calendar size={20} />} label="Son Sipariş" value={sonSiparis ? formatDate(sonSiparis) : "—"} color="amber" />

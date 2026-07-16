@@ -12,7 +12,7 @@ const menuConfig: Record<string, { label: string; href: string }> = {
   siparis: { label: "Siparişler", href: "/dashboard/siparis" },
   kurulum: { label: "Kurulumlar", href: "/dashboard/kurulum" },
   garanti: { label: "Garantiler", href: "/dashboard/garanti" },
-  magaza: { label: "Mağaza", href: "/dashboard/magaza" },
+  magaza: { label: "Mağaza Yönetimi", href: "/dashboard/magaza-yonetimi" },
   auth: { label: "Kullanıcılar", href: "/dashboard/kullanicilar" },
   tedarikci: { label: "Tedarikçiler", href: "/dashboard/tedarikci" },
   kategori: { label: "Kategoriler", href: "/dashboard/kategori" },

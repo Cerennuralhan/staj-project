@@ -360,14 +360,15 @@ export function OdemelerPanel({ musteriId }: { musteriId: string }) {
     },
   });
 
-  /* Özet hesaplamaları */
-  const toplamBorc = siparisler.reduce((sum, s) => sum + (s.toplamTutar || 0), 0);
-  const toplamOdenen = siparisler.reduce((sum, s) => {
+  /* Özet hesaplamaları — iptal edilen siparişler hariç */
+  const gecerliSiparisler = siparisler.filter((s) => s.durum !== "iptal");
+  const toplamBorc = gecerliSiparisler.reduce((sum, s) => sum + (s.toplamTutar || 0), 0);
+  const toplamOdenen = gecerliSiparisler.reduce((sum, s) => {
     if (!s.odemePlani?.taksitler) return sum;
     return sum + s.odemePlani.taksitler.filter((t) => t.odendiMi).reduce((a, t) => a + t.tutar, 0);
   }, 0);
   const kalanBakiye = toplamBorc - toplamOdenen;
-  const gecikmisSayisi = siparisler.reduce((sum, s) => {
+  const gecikmisSayisi = gecerliSiparisler.reduce((sum, s) => {
     if (!s.odemePlani?.taksitler) return sum;
     return sum + s.odemePlani.taksitler.filter(
       (t) => !t.odendiMi && new Date(t.vadeTarihi).getTime() < Date.now(),
@@ -382,7 +383,7 @@ export function OdemelerPanel({ musteriId }: { musteriId: string }) {
     );
   }
 
-  if (siparisler.length === 0) {
+  if (gecerliSiparisler.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <CreditCard size={40} className="text-zinc-600 mb-3" />
@@ -421,7 +422,7 @@ export function OdemelerPanel({ musteriId }: { musteriId: string }) {
 
       {/* Sipariş Satırları */}
       <div className="space-y-2">
-        {siparisler.map((s) => (
+        {gecerliSiparisler.map((s) => (
           <SiparisSatiri
             key={s._id}
             siparis={s}
