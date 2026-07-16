@@ -211,6 +211,7 @@ export async function updateSiparisDurumAction(id: string, yeniDurum: string) {
   if ((siparis as any).musteriId) {
     revalidatePath("/dashboard/musteri/" + (siparis as any).musteriId);
   }
+  revalidatePath("/dashboard");
   return { success: true };
 }
 

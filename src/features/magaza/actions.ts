@@ -7,7 +7,9 @@ import { Kullanici } from "@/features/auth/queries";
 import { Musteri } from "@/features/musteri/queries";
 import { hasPermission } from "@/lib/auth/permissions";
 import { logIslem } from "@/lib/audit";
+import { revalidatePath } from "next/cache";
 import type { SliderInput, GaleriInput, SayfaInput, MagazaInput } from "./schema";
+import { magazaSchema } from "./schema";
 
 export async function getSliderListAction() {
   await connectDB();
@@ -179,15 +181,41 @@ export async function getMagazaAction() {
 export async function updateMagazaAction(data: MagazaInput) {
   const session = await auth();
   if (!session?.user?.id) return { success: false, error: "Oturum gerekli" };
-  await connectDB();
-  const existing = await Magaza.findOne();
-  if (existing) {
-    await Magaza.findByIdAndUpdate(existing._id, data);
-  } else {
-    await Magaza.create(data);
+  const parsed = magazaSchema.safeParse(data);
+  if (!parsed.success) return { success: false, error: parsed.error.errors.map((e) => e.message).join(", ") };
+  try {
+    await connectDB();
+    const existing = await Magaza.findOne();
+    if (existing) {
+      await Magaza.findByIdAndUpdate(existing._id, parsed.data);
+    } else {
+      await Magaza.create(parsed.data);
+    }
+    await logIslem(session.user.id, "guncelle", "magaza");
+    revalidatePath("/dashboard/magaza");
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: String(err) };
   }
-  await logIslem(session.user.id, "guncelle", "magaza");
-  return { success: true };
+}
+
+export async function getIletisimMesajiByIdAction(id: string) {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+
+  const kullanici = await Kullanici.findById(session.user.id).select("rol").lean();
+  if (!kullanici) return null;
+  if (!hasPermission((kullanici as any).rol as any, "mesaj")) return null;
+
+  await connectDB();
+  const doc = await IletisimMesaji.findById(id).lean();
+  if (!doc) return null;
+
+  const musteri = doc.eposta
+    ? await Musteri.findOne({ eposta: doc.eposta }).select("_id eposta adSoyad").lean()
+    : null;
+
+  return JSON.parse(JSON.stringify({ ...doc, musteriId: musteri || null }));
 }
 
 export async function getDefaultWarrantyPeriodAction(): Promise<number> {

@@ -50,7 +50,8 @@ export async function submitIletisim(input: {
         baslik: "Yeni İletişim Mesajı",
         mesaj: `${input.adSoyad} - ${input.mesaj.slice(0, 100)}${input.mesaj.length > 100 ? "..." : ""}`,
         tur: "mesaj" as const,
-        linkUrl: `/dashboard/mesajlar?highlight=${mesajId}`,
+        ilgiliMesajId: mesajId,
+        linkUrl: `/dashboard/mesajlar/${mesajId}`,
         okunduMu: false,
         tarih: new Date(),
       }));

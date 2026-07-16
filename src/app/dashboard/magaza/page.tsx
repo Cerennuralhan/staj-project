@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getSliderListAction, createSliderAction, updateSliderAction, deleteSliderAction,
@@ -134,23 +134,31 @@ function MagazaAyarlariTab() {
   const { data: magaza } = useQuery({ queryKey: ["magaza"], queryFn: getMagazaAction });
   const [form, setForm] = useState({
     magazaAdi: "", telefon: "", eposta: "", adres: "", logo: "",
-    koordinat: { lat: 0, lng: 0 }, disGorunusFotograflari: [""],
+    koordinat: { lat: 0, lng: 0 }, disGorunusFotograflari: [],
     defaultWarrantyPeriodMonths: 24,
     vergiDairesi: "", vergiNo: "",
   });
-  const [loaded, setLoaded] = useState(false);
+  const [hata, setHata] = useState("");
 
-  if (magaza && !loaded) {
-    setForm(magaza);
-    setLoaded(true);
-  }
+  useEffect(() => {
+    if (magaza) setForm(magaza);
+  }, [magaza]);
 
   const updateMut = useMutation({
     mutationFn: () => updateMagazaAction(form),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["magaza"] }),
+    onSuccess: (res) => {
+      if (res.success) {
+        qc.invalidateQueries({ queryKey: ["magaza"] });
+        setHata("");
+      } else {
+        setHata(res.error || "Kaydetme başarısız");
+      }
+    },
+    onError: (err: Error) => setHata(err.message),
   });
 
   return <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900 space-y-3 max-w-xl">
+    {hata && <p className="text-red-400 text-xs bg-red-900/20 p-2 rounded">{hata}</p>}
     <input value={form.magazaAdi} onChange={(e) => setForm((p) => ({ ...p, magazaAdi: e.target.value }))} placeholder="Mağaza Adı" className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm" />
     <div className="grid grid-cols-2 gap-3">
       <input value={form.telefon} onChange={(e) => setForm((p) => ({ ...p, telefon: e.target.value }))} placeholder="Telefon" className="p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm" />
@@ -177,7 +185,7 @@ function MagazaAyarlariTab() {
       />
       <p className="text-[10px] text-zinc-500">Yeni ürün eklenirken otomatik doldurulur, ürün bazında değiştirilebilir.</p>
     </div>
-    <button onClick={() => updateMut.mutate()} className="px-4 py-2 rounded bg-blue-600 text-white text-sm">Kaydet</button>
+    <button onClick={() => { setHata(""); updateMut.mutate(); }} disabled={updateMut.isPending} className="px-4 py-2 rounded bg-blue-600 text-white text-sm disabled:opacity-50">{updateMut.isPending ? "Kaydediliyor..." : "Kaydet"}</button>
   </div>;
 }
 

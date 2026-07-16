@@ -113,6 +113,30 @@ export async function uploadKurulumFotografiAction(
   return { success: true };
 }
 
+/* ---------- Fotoğraf yükleme (base64 — Cloudinary gerekmez) ---------- */
+
+export async function uploadKurulumFotografiBase64Action(
+  kurulumId: string,
+  base64: string,
+  aciklama: string,
+) {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Oturum gerekli" };
+
+  await connectDB();
+  const kurulum = await Kurulum.findById(kurulumId).lean();
+  if (!kurulum) return { success: false, error: "Kurulum bulunamadı" };
+  if (kurulum.durum !== "planlandi")
+    return { success: false, error: "Sadece planlanan kurulumlara fotoğraf eklenebilir" };
+
+  if (base64.length > 5 * 1024 * 1024) {
+    return { success: false, error: "Fotoğraf çok büyük (max 5MB). Lütfen daha küçük bir fotoğraf seçin." };
+  }
+
+  await KurulumFotografi.create({ kurulumId, resim: base64, aciklama });
+  return { success: true };
+}
+
 /* ---------- Kurulum tamamlama (garanti + bildirim) ---------- */
 
 export async function completeKurulumAction(kurulumId: string) {

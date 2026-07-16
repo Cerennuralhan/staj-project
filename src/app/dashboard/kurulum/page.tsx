@@ -6,9 +6,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
 import {
   getKurulumListAction, getMontajKurulumListAction, getMontajKullanicilarAction,
-  assignKurulumAction, uploadKurulumFotografiAction, completeKurulumAction,
+  assignKurulumAction, uploadKurulumFotografiBase64Action, completeKurulumAction,
 } from "@/features/kurulum/actions";
-import { getUploadParams } from "@/lib/cloudinary";
 
 /* ---------- Renk / etiket yardımcıları ---------- */
 
@@ -192,6 +191,11 @@ function MontajKurulumView() {
     Record<string, { uploading: boolean; aciklama: string }>
   >({});
 
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Dosya referanslarını sakla
+  const [photoFiles, setPhotoFiles] = useState<Record<string, File>>({});
+
   const uploadMut = useMutation({
     mutationFn: async ({
       kurulumId,
@@ -200,41 +204,44 @@ function MontajKurulumView() {
       kurulumId: string;
       aciklama: string;
     }) => {
-      // Cloudinary upload params al
-      const params = getUploadParams();
-      const formData = new FormData();
-      formData.append("file", photoFiles[kurulumId]);
-      formData.append("api_key", params.apiKey);
-      formData.append("timestamp", String(params.timestamp));
-      formData.append("signature", params.signature);
-      formData.append("folder", "demiray/kurulum");
+      const file = photoFiles[kurulumId];
+      if (!file) throw new Error("Lütfen bir dosya seçin");
 
-      const uploadRes = await fetch(
-        `https://api.cloudinary.com/v1_1/${params.cloudName}/image/upload`,
-        { method: "POST", body: formData }
-      );
-      const uploadData = await uploadRes.json();
-      if (!uploadData.secure_url) throw new Error("Yükleme başarısız");
+      // File'ı base64'e çevir
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = "";
+      for (let i = 0; i < bytes.length; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = `data:${file.type};base64,${btoa(binary)}`;
 
-      // URL'i kaydet
-      return uploadKurulumFotografiAction(kurulumId, uploadData.secure_url, aciklama);
+      if (base64.length > 6 * 1024 * 1024) {
+        throw new Error("Fotoğraf çok büyük (max 5MB). Lütfen daha küçük bir fotoğraf seçin.");
+      }
+
+      const res = await uploadKurulumFotografiBase64Action(kurulumId, base64, aciklama);
+      if (!res.success) throw new Error(res.error || "Yükleme başarısız");
+      return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["montaj-kurulumlar", userId] });
+    },
+    onError: (err: Error) => {
+      setUploadError(err.message);
     },
   });
 
   const completeMut = useMutation({
     mutationFn: (kurulumId: string) => completeKurulumAction(kurulumId),
     onSuccess: (res) => {
-      if (res.success)
-        queryClient.invalidateQueries({ queryKey: ["montaj-kurulumlar", userId] });
+      if (!res.success) setUploadError(res.error || "Kurulum tamamlanamadı");
+      else queryClient.invalidateQueries({ queryKey: ["montaj-kurulumlar", userId] });
     },
-    onError: () => {},
+    onError: (err: Error) => {
+      setUploadError(err.message);
+    },
   });
-
-  // Dosya referanslarını sakla
-  const [photoFiles, setPhotoFiles] = useState<Record<string, File>>({});
 
   const planlandiKurulumlar = kurulumlar.filter(
     (k: any) => k.durum === "planlandi"
@@ -304,29 +311,42 @@ function MontajKurulumView() {
               <button
                 disabled={!hasFile || pf.uploading}
                 onClick={async () => {
+                  setUploadError(null);
                   setPhotoForms((p) => ({
                     ...p,
                     [k._id]: { ...p[k._id], uploading: true },
                   }));
-                  await uploadMut.mutateAsync({
-                    kurulumId: k._id,
-                    aciklama: pf.aciklama,
-                  });
-                  setPhotoForms((p) => ({
-                    ...p,
-                    [k._id]: { uploading: false, aciklama: "" },
-                  }));
-                  setPhotoFiles((p) => {
-                    const next = { ...p };
-                    delete next[k._id];
-                    return next;
-                  });
+                  try {
+                    await uploadMut.mutateAsync({
+                      kurulumId: k._id,
+                      aciklama: pf.aciklama,
+                    });
+                    setPhotoForms((p) => ({
+                      ...p,
+                      [k._id]: { uploading: false, aciklama: "" },
+                    }));
+                    setPhotoFiles((p) => {
+                      const next = { ...p };
+                      delete next[k._id];
+                      return next;
+                    });
+                  } catch {
+                    setPhotoForms((p) => ({
+                      ...p,
+                      [k._id]: { ...p[k._id], uploading: false },
+                    }));
+                  }
                 }}
                 className="px-3 py-1.5 rounded text-xs bg-blue-600 text-white disabled:opacity-40"
               >
                 {pf.uploading ? "Yükleniyor..." : "Yükle"}
               </button>
             </div>
+
+            {/* Hata mesajı */}
+            {uploadError && (
+              <p className="text-red-400 text-xs">{uploadError}</p>
+            )}
 
             {/* Yüklenen fotoğraflar */}
             {(k as any).fotograflar?.length > 0 && (
@@ -349,7 +369,10 @@ function MontajKurulumView() {
             {/* Tamamla butonu — en az 1 fotoğraf gerekli */}
             <button
               disabled={fotoCount < 1}
-              onClick={() => completeMut.mutate(k._id)}
+              onClick={() => {
+                setUploadError(null);
+                completeMut.mutate(k._id);
+              }}
               className={`px-4 py-2 rounded text-sm text-white ${
                 fotoCount < 1
                   ? "bg-zinc-700 cursor-not-allowed"

@@ -28,6 +28,7 @@ export interface Bildirim {
   mesaj: string;
   tur: "stok_tukendi" | "siparis" | "garanti" | "kurulum" | "mesaj" | "diger";
   ilgiliUrunId?: string | null;
+  ilgiliMesajId?: string | null;
   linkUrl?: string;
   okunduMu: boolean;
   tarih: string;

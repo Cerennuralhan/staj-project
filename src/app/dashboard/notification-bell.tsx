@@ -12,15 +12,19 @@ import {
 } from "@/features/bildirim/actions";
 
 function getBildirimYolu(b: any): string | null {
-  if (b.tur === "stok_tukendi") {
-    if (b.linkUrl) return b.linkUrl;
-    return b.ilgiliUrunId ? `/dashboard/urun?q=${b.ilgiliUrunId}&highlight=stok` : null;
+  switch (b.tur) {
+    case "stok_tukendi":
+      if (b.linkUrl) return b.linkUrl;
+      return b.ilgiliUrunId ? `/dashboard/urun?q=${b.ilgiliUrunId}&highlight=stok` : null;
+    case "mesaj":
+      if (b.ilgiliMesajId) return `/dashboard/mesajlar/${b.ilgiliMesajId}`;
+      if (b.linkUrl) return b.linkUrl;
+      return "/dashboard/mesajlar";
+    case "siparis":
+      return b.linkUrl || null;
+    default:
+      return b.linkUrl || null;
   }
-  if (b.tur === "mesaj") {
-    return b.linkUrl || "/dashboard/mesajlar";
-  }
-  if (b.linkUrl) return b.linkUrl;
-  return null;
 }
 
 export function NotificationBell() {

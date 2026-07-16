@@ -23,6 +23,7 @@ export const bildirimSchema = z.object({
   mesaj: z.string(),
   tur: z.enum(["stok_tukendi", "siparis", "garanti", "kurulum", "mesaj", "diger"]).optional().default("diger"),
   ilgiliUrunId: z.string().regex(objectIdPattern).nullable().optional().default(null),
+  ilgiliMesajId: z.string().regex(objectIdPattern).nullable().optional().default(null),
   linkUrl: z.string().optional().default(""),
   okunduMu: z.boolean(),
   tarih: z.date().or(z.string()),
