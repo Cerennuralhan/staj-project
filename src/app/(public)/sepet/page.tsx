@@ -10,7 +10,23 @@ import {
 } from "@/features/sepet/public-actions";
 import { getOrCreateMisafirSepetId } from "@/lib/sepet-cookie";
 import Link from "next/link";
-import { ShoppingBag, Trash2, Loader2, Plus, Minus } from "lucide-react";
+import { ShoppingBag, Trash2, Loader2, Plus, Minus, AlertTriangle } from "lucide-react";
+
+function urunStokSorunlari(urunler: any[]) {
+  let sorunVar = false;
+  const sonuclar = urunler.map((u) => {
+    if (u.stok <= 0) {
+      sorunVar = true;
+      return { tur: "bitti" as const, mesaj: "Stokta Yok" };
+    }
+    if (u.adet > u.stok) {
+      sorunVar = true;
+      return { tur: "kismi" as const, mesaj: `Stokta ${u.stok} adet kaldı` };
+    }
+    return { tur: "yeterli" as const, mesaj: "" };
+  });
+  return { sorunVar, sonuclar };
+}
 
 export default function SepetPage() {
   const { uye } = useUyeAuth();
@@ -21,24 +37,28 @@ export default function SepetPage() {
     setMisafirId(getOrCreateMisafirSepetId());
   }, []);
 
+  const sepetQueryKey = ["sepet", uye?.id, misafirId];
+
   const { data: sepet, isFetching, refetch } = useQuery({
-    queryKey: ["sepet", uye?.id, misafirId],
+    queryKey: sepetQueryKey,
     queryFn: () => sepetDetayliGetirAction(uye?.id, uye ? undefined : misafirId || undefined),
     enabled: !!uye || misafirId.length > 0,
+    refetchInterval: 30_000,
   });
 
-  const updateAdet = async (urunId: string, yeniAdet: number) => {
+  const updateAdet = useCallback(async (urunId: string, yeniAdet: number) => {
     await sepetUrunAdetGuncelleAction(urunId, yeniAdet, uye?.id, uye ? undefined : misafirId || undefined);
     refetch();
-  };
+  }, [uye?.id, misafirId, refetch]);
 
-  const removeUrun = async (urunId: string) => {
+  const removeUrun = useCallback(async (urunId: string) => {
     await sepetUrunSilAction(urunId, uye?.id, uye ? undefined : misafirId || undefined);
     refetch();
-  };
+  }, [uye?.id, misafirId, refetch]);
 
   const urunler = sepet?.urunler || [];
   const toplamTutar = sepet?.toplamTutar || 0;
+  const { sorunVar, sonuclar } = urunStokSorunlari(urunler);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
@@ -59,64 +79,104 @@ export default function SepetPage() {
       ) : (
         <>
           <div className="space-y-3">
-            {urunler.map((u: any) => (
-              <div key={u.urunId} className="flex items-center gap-4 rounded-xl border border-border bg-card p-3">
-                <Link href={`/urunler/${u.urunId}`} className="shrink-0">
-                  <div className="w-20 h-20 rounded-lg bg-surface-alt overflow-hidden">
-                    {u.kapakResmi ? (
-                      <img src={u.kapakResmi} alt={u.urunAdi} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-muted-darker text-xs">Görsel</div>
+            {urunler.map((u: any, i: number) => {
+              const stokDurum = sonuclar[i];
+              const stokSorunu = stokDurum.tur !== "yeterli";
+              return (
+                <div key={u.urunId} className={`flex items-center gap-4 rounded-xl border bg-card p-3 transition-opacity ${stokSorunu ? "border-danger/40 opacity-70" : "border-border"}`}>
+                  <Link href={`/urunler/${u.urunId}`} className="shrink-0">
+                    <div className="w-20 h-20 rounded-lg bg-surface-alt overflow-hidden">
+                      {u.kapakResmi ? (
+                        <img src={u.kapakResmi} alt={u.urunAdi} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="flex items-center justify-center h-full text-muted-darker text-xs">Görsel</div>
+                      )}
+                    </div>
+                  </Link>
+
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/urunler/${u.urunId}`}>
+                      <h3 className="text-sm font-medium text-foreground truncate">{u.urunAdi}</h3>
+                    </Link>
+                    <p className="text-sm text-primary mt-0.5">{u.fiyat} TL</p>
+                    {/* Stok uyarısı */}
+                    {stokSorunu && (
+                      <div className="flex items-center gap-1 mt-1.5">
+                        <AlertTriangle size={12} className="text-danger shrink-0" />
+                        <span className="text-xs font-medium text-danger">{stokDurum.mesaj}</span>
+                      </div>
+                    )}
+                    {stokDurum.tur === "kismi" && (
+                      <button
+                        onClick={() => updateAdet(u.urunId, u.stok)}
+                        className="mt-1 text-xs text-primary hover:underline"
+                      >
+                        Adedi {u.stok} olarak güncelle
+                      </button>
                     )}
                   </div>
-                </Link>
 
-                <div className="flex-1 min-w-0">
-                  <Link href={`/urunler/${u.urunId}`}>
-                    <h3 className="text-sm font-medium text-foreground truncate">{u.urunAdi}</h3>
-                  </Link>
-                  <p className="text-sm text-primary mt-0.5">{u.fiyat} TL</p>
-                </div>
+                  {/* Adet kontrol */}
+                  <div className={`flex items-center gap-1 border rounded-lg ${stokSorunu ? "border-danger/30 opacity-50" : "border-border"}`}>
+                    <button
+                      onClick={() => updateAdet(u.urunId, u.adet - 1)}
+                      disabled={stokSorunu}
+                      className="p-1.5 text-muted hover:text-foreground transition disabled:pointer-events-none"
+                    ><Minus size={14} /></button>
+                    <span className="w-8 text-center text-sm text-foreground">{u.adet}</span>
+                    <button
+                      onClick={() => updateAdet(u.urunId, u.adet + 1)}
+                      disabled={stokSorunu}
+                      className="p-1.5 text-muted hover:text-foreground transition disabled:pointer-events-none"
+                    ><Plus size={14} /></button>
+                  </div>
 
-                {/* Adet kontrol */}
-                <div className="flex items-center gap-1 border border-border rounded-lg">
+                  <p className="text-sm font-semibold text-foreground w-20 text-right">
+                    {u.fiyat * u.adet} TL
+                  </p>
+
                   <button
-                    onClick={() => updateAdet(u.urunId, u.adet - 1)}
-                    className="p-1.5 text-muted hover:text-foreground transition"
-                  ><Minus size={14} /></button>
-                  <span className="w-8 text-center text-sm text-foreground">{u.adet}</span>
-                  <button
-                    onClick={() => updateAdet(u.urunId, u.adet + 1)}
-                    className="p-1.5 text-muted hover:text-foreground transition"
-                  ><Plus size={14} /></button>
+                    onClick={() => removeUrun(u.urunId)}
+                    className={`transition p-1 ${stokSorunu ? "text-danger hover:text-danger/80" : "text-muted-darker hover:text-danger"}`}
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-
-                <p className="text-sm font-semibold text-foreground w-20 text-right">
-                  {u.fiyat * u.adet} TL
-                </p>
-
-                <button
-                  onClick={() => removeUrun(u.urunId)}
-                  className="text-muted-darker hover:text-danger transition p-1"
-                >
-                  <Trash2 size={16} />
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Alt toplam */}
           <div className="mt-8 border-t border-border pt-6">
+            {/* Stok hatası mesajı */}
+            {sorunVar && (
+              <div className="mb-4 flex items-start gap-2 rounded-lg border border-danger/40 bg-danger/5 p-3">
+                <AlertTriangle size={16} className="text-danger shrink-0 mt-0.5" />
+                <p className="text-sm text-danger">
+                  Sepetinizde stokta olmayan veya stok miktarını aşan ürünler bulunuyor.
+                  Lütfen bu ürünlerin adedini güncelleyin veya sepetten kaldırın.
+                </p>
+              </div>
+            )}
             <div className="flex items-center justify-between text-lg">
               <span className="text-foreground-secondary">Genel Toplam</span>
               <span className="font-bold text-foreground">{toplamTutar.toLocaleString("tr-TR")} TL</span>
             </div>
-            <Link
-              href="/sepet/odeme"
-              className="mt-4 block w-full rounded-lg bg-primary py-3 text-center text-sm font-semibold text-foreground hover:bg-primary-hover transition"
-            >
-              Siparişi Tamamla
-            </Link>
+            {sorunVar ? (
+              <button
+                disabled
+                className="mt-4 block w-full rounded-lg bg-muted py-3 text-center text-sm font-semibold text-muted-darker cursor-not-allowed"
+              >
+                Stok sorunları nedeniyle sipariş tamamlanamıyor
+              </button>
+            ) : (
+              <Link
+                href="/sepet/odeme"
+                className="mt-4 block w-full rounded-lg bg-primary py-3 text-center text-sm font-semibold text-foreground hover:bg-primary-hover transition"
+              >
+                Siparişi Tamamla
+              </Link>
+            )}
           </div>
         </>
       )}

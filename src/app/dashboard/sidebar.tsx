@@ -38,6 +38,19 @@ export function DashboardSidebar({ rol, userName }: Props) {
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
+        <Link
+          href="/dashboard"
+          className={`flex items-center justify-between px-3 py-2 rounded-md text-sm transition ${
+            pathname === "/dashboard"
+              ? "bg-blue-600 text-white"
+              : "text-zinc-300 hover:bg-zinc-800"
+          }`}
+        >
+          <span>Ana Sayfa</span>
+        </Link>
+
+        <div className="border-t border-zinc-800 my-2" />
+
         {allowedModules.map((modul) => {
           const cfg = menuConfig[modul];
           if (!cfg) return null;

@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getIletisimMesajlariAction,
@@ -10,6 +13,7 @@ import {
   markAllIletisimMesajlariOkunduAction,
   deleteIletisimMesajiAction,
 } from "@/features/magaza/actions";
+import { hasPermission } from "@/lib/auth/permissions";
 import { Mail, Trash2, X, Loader2, CheckCheck, CircleCheck, AlertCircle } from "lucide-react";
 
 function MesajDetay({ mesaj, onClose }: { mesaj: any; onClose: () => void }) {
@@ -67,9 +71,15 @@ function MesajDetay({ mesaj, onClose }: { mesaj: any; onClose: () => void }) {
 }
 
 export default function MesajlarPage() {
+  const { data: session } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get("highlight");
   const queryClient = useQueryClient();
   const [selectedMesaj, setSelectedMesaj] = useState<any>(null);
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const highlightRef = useRef<HTMLDivElement>(null);
+  const autoOpenedRef = useRef(false);
 
   useEffect(() => {
     if (notification) {
@@ -78,10 +88,33 @@ export default function MesajlarPage() {
     }
   }, [notification]);
 
+  const rol = (session?.user as any)?.rol as string | undefined;
+  useEffect(() => {
+    if (rol && !hasPermission(rol as any, "mesaj")) {
+      router.replace("/dashboard");
+    }
+  }, [rol, router]);
+
   const { data: mesajlar = [], isFetching } = useQuery({
     queryKey: ["iletisim-mesajlari"],
     queryFn: getIletisimMesajlariAction,
   });
+
+  useEffect(() => {
+    if (highlightId && mesajlar.length > 0 && !autoOpenedRef.current) {
+      autoOpenedRef.current = true;
+      const hedef = mesajlar.find((m: any) => m._id === highlightId);
+      if (hedef) {
+        setSelectedMesaj(hedef);
+        if (!hedef.okunduMu) {
+          okunduMut.mutate(hedef._id);
+        }
+        setTimeout(() => {
+          highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 100);
+      }
+    }
+  }, [highlightId, mesajlar]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["iletisim-mesajlari"] });
@@ -173,12 +206,15 @@ export default function MesajlarPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {mesajlar.map((m: any) => (
+          {mesajlar.map((m: any, i: number) => (
             <div
               key={m._id}
+              ref={m._id === highlightId ? highlightRef : undefined}
               onClick={() => handleSelect(m)}
               className={`flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors ${
-                !m.okunduMu
+                m._id === highlightId
+                  ? "border-yellow-500/60 bg-yellow-900/15"
+                  : !m.okunduMu
                   ? "border-blue-800/50 bg-blue-900/10 hover:border-blue-600/50"
                   : "border-zinc-800 bg-zinc-900 hover:border-zinc-600"
               }`}

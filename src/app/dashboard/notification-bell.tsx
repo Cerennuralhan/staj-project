@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import {
   getBildirimListAction,
   getOkunmamisBildirimSayisiAction,
@@ -10,9 +11,22 @@ import {
   tumBildirimlerOkunduAction,
 } from "@/features/bildirim/actions";
 
+function getBildirimYolu(b: any): string | null {
+  if (b.tur === "stok_tukendi") {
+    if (b.linkUrl) return b.linkUrl;
+    return b.ilgiliUrunId ? `/dashboard/urun?q=${b.ilgiliUrunId}&highlight=stok` : null;
+  }
+  if (b.tur === "mesaj") {
+    return b.linkUrl || "/dashboard/mesajlar";
+  }
+  if (b.linkUrl) return b.linkUrl;
+  return null;
+}
+
 export function NotificationBell() {
   const { data: session } = useSession();
   const userId = (session?.user as any)?.id;
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
 
@@ -92,7 +106,12 @@ export function NotificationBell() {
               bildirimler.map((b: any) => (
                 <div
                   key={b._id}
-                  onClick={() => { if (!b.okunduMu) okunduMut.mutate(b._id); }}
+                  onClick={() => {
+                    if (!b.okunduMu) okunduMut.mutate(b._id);
+                    setOpen(false);
+                    const yol = getBildirimYolu(b);
+                    if (yol) router.push(yol);
+                  }}
                   className={`p-3 border-b border-zinc-800 cursor-pointer hover:bg-zinc-800/50 transition ${
                     !b.okunduMu ? "bg-zinc-800/30" : ""
                   }`}

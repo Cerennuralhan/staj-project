@@ -8,28 +8,31 @@ export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [eposta, setEposta] = useState("");
+  const [sifre, setSifre] = useState("");
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    const formData = new FormData(e.currentTarget);
-    const eposta = formData.get("eposta") as string;
-    const sifre = formData.get("sifre") as string;
+    try {
+      const result = await signIn("credentials", {
+        eposta,
+        sifre,
+        redirect: false,
+      });
 
-    const result = await signIn("credentials", {
-      eposta,
-      sifre,
-      redirect: false,
-    });
-
-    if (result?.error) {
-      setError("E-posta veya şifre hatalı.");
-      setLoading(false);
-    } else {
-      router.push("/dashboard");
+      if (result?.error) {
+        setError("E-posta veya şifre hatalı.");
+      } else {
+        router.push("/dashboard");
+        return;
+      }
+    } catch (err) {
+      setError("Giriş yapılırken bir hata oluştu.");
     }
+    setLoading(false);
   };
 
   return (
@@ -55,6 +58,8 @@ export default function LoginPage() {
             name="eposta"
             type="email"
             required
+            value={eposta}
+            onChange={(e) => setEposta(e.target.value)}
             className="w-full p-2.5 rounded bg-zinc-800 border border-zinc-700 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>
@@ -65,6 +70,8 @@ export default function LoginPage() {
             name="sifre"
             type="password"
             required
+            value={sifre}
+            onChange={(e) => setSifre(e.target.value)}
             className="w-full p-2.5 rounded bg-zinc-800 border border-zinc-700 text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
           />
         </div>

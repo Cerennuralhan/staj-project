@@ -28,9 +28,18 @@ export async function getPublicProducts(filters?: {
   if (filters?.sirala === "cok_satan") sort = { satisSayisi: -1 };
   else if (filters?.sirala === "dusuk_butce") sort = { fiyat: 1 };
   else if (filters?.sirala === "populer") sort = { oneCikan: -1, createdAt: -1 };
-  else if (filters?.sirala === "kampanyali") sort = { oneCikan: -1, fiyat: 1 };
+  else if (filters?.sirala === "kampanyali") { filter.oneCikan = true; sort = { oneCikan: -1, fiyat: 1 }; }
 
   const docs = await UrunModel.find(filter).sort(sort).lean();
+  return JSON.parse(JSON.stringify(docs));
+}
+
+export async function getOneCikanUrunlerAction(limit = 4): Promise<Urun[]> {
+  await connectDB();
+  const docs = await UrunModel.find({ yayinlandiMi: true, oneCikan: true })
+    .sort({ createdAt: -1 })
+    .limit(limit)
+    .lean();
   return JSON.parse(JSON.stringify(docs));
 }
 
@@ -55,38 +64,60 @@ export async function searchProductsAction(query: string): Promise<Urun[]> {
 /* ---------- Filtre verileri ---------- */
 
 export async function getKategoriCountsAction(): Promise<{ _id: string; kategoriAdi: string; count: number }[]> {
-  await connectDB();
-  const kategoriler = await KategoriModel.find().sort({ sira: 1 }).lean();
-  const counts = await UrunModel.aggregate([
-    { $match: { yayinlandiMi: true } },
-    { $group: { _id: "$kategoriId", count: { $sum: 1 } } },
-  ]);
-  const countMap = new Map(counts.map((c: any) => [c._id.toString(), c.count]));
-  return kategoriler.map((k: any) => ({
-    _id: k._id.toString(),
-    kategoriAdi: k.kategoriAdi,
-    count: countMap.get(k._id.toString()) || 0,
-  }));
+  try {
+    await connectDB();
+    const kategoriler = await KategoriModel.find().sort({ sira: 1 }).lean();
+    const counts = await UrunModel.aggregate([
+      { $match: { yayinlandiMi: true } },
+      { $group: { _id: "$kategoriId", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(counts.map((c: any) => [c._id.toString(), c.count]));
+    return kategoriler.map((k: any) => ({
+      _id: k._id.toString(),
+      kategoriAdi: k.kategoriAdi,
+      count: countMap.get(k._id.toString()) || 0,
+    }));
+  } catch (e) {
+    console.error("getKategoriCountsAction hatası:", e);
+    return [];
+  }
 }
 
 export async function getFiyatAraligiAction(): Promise<{ min: number; max: number }> {
-  await connectDB();
-  const result = await UrunModel.aggregate([
-    { $match: { yayinlandiMi: true } },
-    { $group: { _id: null, min: { $min: "$fiyat" }, max: { $max: "$fiyat" } } },
-  ]);
-  if (!result.length) return { min: 0, max: 100000 };
-  return { min: result[0].min, max: result[0].max };
+  try {
+    await connectDB();
+    const result = await UrunModel.aggregate([
+      { $match: { yayinlandiMi: true } },
+      { $group: { _id: null, min: { $min: "$fiyat" }, max: { $max: "$fiyat" } } },
+    ]);
+    if (!result.length) return { min: 0, max: 100000 };
+    return { min: result[0].min, max: result[0].max };
+  } catch (e) {
+    console.error("getFiyatAraligiAction hatası:", e);
+    return { min: 0, max: 100000 };
+  }
 }
 
 export async function getRenklerAction(): Promise<string[]> {
-  await connectDB();
-  const result = await UrunModel.distinct("renk", { yayinlandiMi: true });
-  return result.filter(Boolean).sort();
+  try {
+    await connectDB();
+    const result = await UrunModel.distinct("renk", { yayinlandiMi: true });
+    if (!Array.isArray(result)) return [];
+    return result.filter((r): r is string => typeof r === "string" && r.trim().length > 0).sort();
+  } catch (e) {
+    console.error("getRenklerAction hatası:", e);
+    return [];
+  }
 }
 
 export async function getMateryallerAction(): Promise<string[]> {
-  await connectDB();
-  const result = await UrunModel.distinct("materyal", { yayinlandiMi: true });
-  return result.filter(Boolean).sort();
+  try {
+    await connectDB();
+    const result = await UrunModel.distinct("materyal", { yayinlandiMi: true });
+    if (!Array.isArray(result)) return [];
+    return result.filter((m): m is string => typeof m === "string" && m.trim().length > 0).sort();
+  } catch (e) {
+    console.error("getMateryallerAction hatası:", e);
+    return [];
+  }
 }

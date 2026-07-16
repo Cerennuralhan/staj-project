@@ -11,6 +11,7 @@ import {
 } from "@/features/urun/public-actions";
 import { ChevronDown, X } from "lucide-react";
 import * as Popover from "@radix-ui/react-popover";
+import { FIYAT_ARALIKLARI, SIRALAMA_SECENEKLERI } from "@/lib/filters";
 
 const colorMap: Record<string, string> = {
   Siyah: "#1a1a1a", Beyaz: "#f5f5f5", Gri: "#9ca3af", Bej: "#e8dcc8",
@@ -19,12 +20,19 @@ const colorMap: Record<string, string> = {
   Ceviz: "#6b3a2a", Meşe: "#b8926c", Kırmızı: "#dc2626",
 };
 
-const sortOptions = [
-  { value: "cok_satan", label: "Çok Satanlar" },
-  { value: "dusuk_butce", label: "Düşük Bütçe" },
-  { value: "populer", label: "Popüler" },
-  { value: "kampanyali", label: "Kampanyalı" },
-];
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-2 animate-pulse">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="h-8 rounded-lg bg-zinc-700/50" />
+      ))}
+    </div>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return <p className="text-xs text-zinc-500 text-center py-4">{message}</p>;
+}
 
 export function FilterBar() {
   const router = useRouter();
@@ -37,22 +45,27 @@ export function FilterBar() {
   const materyaller = searchParams.get("materyaller")?.split(",").filter(Boolean) || [];
   const sirala = searchParams.get("sirala") || "";
 
-  const { data: kategoriCounts = [] } = useQuery({
+  const kategoriQuery = useQuery({
     queryKey: ["kategori-counts"],
     queryFn: getKategoriCountsAction,
   });
-  const { data: fiyatAraligi } = useQuery({
+  const fiyatQuery = useQuery({
     queryKey: ["fiyat-araligi"],
     queryFn: getFiyatAraligiAction,
   });
-  const { data: renkList = [] } = useQuery({
+  const renkQuery = useQuery({
     queryKey: ["renkler"],
     queryFn: getRenklerAction,
   });
-  const { data: materyalList = [] } = useQuery({
+  const materyalQuery = useQuery({
     queryKey: ["materyaller"],
     queryFn: getMateryallerAction,
   });
+
+  const kategoriCounts = kategoriQuery.data ?? [];
+  const fiyatAraligi = fiyatQuery.data;
+  const renkList = renkQuery.data ?? [];
+  const materyalList = materyalQuery.data ?? [];
 
   const [localMin, setLocalMin] = useState(0);
   const [localMax, setLocalMax] = useState(100000);
@@ -116,34 +129,42 @@ export function FilterBar() {
                 align="start"
                 className={`${panel} max-h-72 overflow-y-auto ${contentClass}`}
               >
-                <button
-                  onClick={() => updateURL({ kategori: undefined })}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
-                    !kategori
-                      ? "bg-primary-light text-primary"
-                      : "text-foreground-secondary hover:bg-surface-alt"
-                  }`}
-                >
-                  Tümü
-                </button>
-                {kategoriCounts.map((k: any) => (
-                  <button
-                    key={k._id}
-                    onClick={() =>
-                      updateURL({
-                        kategori: k._id === kategori ? undefined : k._id,
-                      })
-                    }
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
-                      kategori === k._id
-                        ? "bg-primary-light text-primary"
-                        : "text-foreground-secondary hover:bg-surface-alt"
-                    }`}
-                  >
-                    {k.kategoriAdi}{" "}
-                    <span className="text-muted-darker text-xs">({k.count} ürün)</span>
-                  </button>
-                ))}
+                {kategoriQuery.isLoading ? (
+                  <LoadingSkeleton />
+                ) : kategoriCounts.length === 0 ? (
+                  <EmptyState message="Kategori bulunamadı" />
+                ) : (
+                  <>
+                    <button
+                      onClick={() => updateURL({ kategori: undefined })}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
+                        !kategori
+                          ? "bg-primary-light text-primary"
+                          : "text-foreground-secondary hover:bg-surface-alt"
+                      }`}
+                    >
+                      Tümü
+                    </button>
+                    {kategoriCounts.map((k: any) => (
+                      <button
+                        key={k._id}
+                        onClick={() =>
+                          updateURL({
+                            kategori: k._id === kategori ? undefined : k._id,
+                          })
+                        }
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition ${
+                          kategori === k._id
+                            ? "bg-primary-light text-primary"
+                            : "text-foreground-secondary hover:bg-surface-alt"
+                        }`}
+                      >
+                        {k.kategoriAdi}{" "}
+                        <span className="text-muted-darker text-xs">({k.count} ürün)</span>
+                      </button>
+                    ))}
+                  </>
+                )}
               </Popover.Content>
             </Popover.Portal>
           </Popover.Root>
@@ -161,8 +182,38 @@ export function FilterBar() {
                 align="start"
                 className={`${panel} ${contentClass}`}
               >
-                {fiyatAraligi && (
+                {fiyatQuery.isLoading ? (
+                  <LoadingSkeleton />
+                ) : !fiyatAraligi ? (
+                  <EmptyState message="Fiyat bilgisi alınamadı" />
+                ) : (
                   <>
+                    {/* Hızlı fiyat aralıkları */}
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {FIYAT_ARALIKLARI.map((aralik) => {
+                        const active =
+                          (minFiyat === String(aralik.min) || (!minFiyat && aralik.min === 0)) &&
+                          (maxFiyat === String(aralik.max) || (!maxFiyat && aralik.max === null));
+                        return (
+                          <button
+                            key={aralik.label}
+                            onClick={() =>
+                              updateURL({
+                                minFiyat: aralik.min > 0 ? String(aralik.min) : undefined,
+                                maxFiyat: aralik.max !== null ? String(aralik.max) : undefined,
+                              })
+                            }
+                            className={`text-[11px] px-2 py-1 rounded-md border transition ${
+                              active
+                                ? "bg-primary border-primary text-primary-foreground"
+                                : "border-border text-foreground-secondary hover:bg-surface-alt"
+                            }`}
+                          >
+                            {aralik.label}
+                          </button>
+                        );
+                      })}
+                    </div>
                     <div className="relative h-2 bg-zinc-700 rounded-full mb-4">
                       <div
                         className="absolute h-full bg-primary rounded-full"
@@ -261,52 +312,60 @@ export function FilterBar() {
                 align="start"
                 className={`${panel} ${contentClass}`}
               >
-                <div className="flex flex-wrap gap-2">
-                  {renkList.map((r) => {
-                    const bg = colorMap[r] || "#9ca3af";
-                    const selected = renkler.includes(r);
-                    const isLight = ["Beyaz", "Bej", "Gri"].includes(r);
-                    return (
-                      <button
-                        key={r}
-                        onClick={() => {
-                          const newRenkler = renkler.includes(r)
-                            ? renkler.filter((x) => x !== r)
-                            : [...renkler, r];
-                          updateURL({
-                            renkler: newRenkler.length
-                              ? newRenkler.join(",")
-                              : undefined,
-                          });
-                        }}
-                        title={r}
-                        className={`w-8 h-8 rounded-full border-2 transition ${
-                          selected
-                            ? "border-primary ring-2 ring-primary/30"
-                            : "border-zinc-600 hover:border-zinc-400"
-                        }`}
-                        style={{ backgroundColor: bg }}
-                      >
-                        {selected && (
-                          <span
-                            className={`flex items-center justify-center text-[10px] font-bold ${
-                              isLight ? "text-black" : "text-white"
+                {renkQuery.isLoading ? (
+                  <LoadingSkeleton />
+                ) : renkList.length === 0 ? (
+                  <EmptyState message="Renk seçeneği bulunamadı" />
+                ) : (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {renkList.map((r) => {
+                        const bg = colorMap[r] || "#9ca3af";
+                        const selected = renkler.includes(r);
+                        const isLight = ["Beyaz", "Bej", "Gri"].includes(r);
+                        return (
+                          <button
+                            key={r}
+                            onClick={() => {
+                              const newRenkler = renkler.includes(r)
+                                ? renkler.filter((x) => x !== r)
+                                : [...renkler, r];
+                              updateURL({
+                                renkler: newRenkler.length
+                                  ? newRenkler.join(",")
+                                  : undefined,
+                              });
+                            }}
+                            title={r}
+                            className={`w-8 h-8 rounded-full border-2 transition ${
+                              selected
+                                ? "border-primary ring-2 ring-primary/30"
+                                : "border-zinc-600 hover:border-zinc-400"
                             }`}
+                            style={{ backgroundColor: bg }}
                           >
-                            ✓
-                          </span>
-                        )}
+                            {selected && (
+                              <span
+                                className={`flex items-center justify-center text-[10px] font-bold ${
+                                  isLight ? "text-black" : "text-white"
+                                }`}
+                              >
+                                ✓
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {renkler.length > 0 && (
+                      <button
+                        onClick={() => updateURL({ renkler: undefined })}
+                        className="mt-3 w-full text-center text-xs text-muted-darker hover:text-foreground-secondary underline"
+                      >
+                        Filtreleri Temizle
                       </button>
-                    );
-                  })}
-                </div>
-                {renkler.length > 0 && (
-                  <button
-                    onClick={() => updateURL({ renkler: undefined })}
-                    className="mt-3 w-full text-center text-xs text-muted-darker hover:text-foreground-secondary underline"
-                  >
-                    Filtreleri Temizle
-                  </button>
+                    )}
+                  </>
                 )}
               </Popover.Content>
             </Popover.Portal>
@@ -326,36 +385,44 @@ export function FilterBar() {
                 align="start"
                 className={`${panel} max-h-60 overflow-y-auto ${contentClass}`}
               >
-                {materyalList.map((m) => (
-                  <label
-                    key={m}
-                    className="flex items-center gap-2 cursor-pointer px-1 py-1.5 rounded hover:bg-surface-alt transition"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={materyaller.includes(m)}
-                      onChange={() => {
-                        const newMateryaller = materyaller.includes(m)
-                          ? materyaller.filter((x) => x !== m)
-                          : [...materyaller, m];
-                        updateURL({
-                          materyaller: newMateryaller.length
-                            ? newMateryaller.join(",")
-                            : undefined,
-                        });
-                      }}
-                      className="accent-primary"
-                    />
-                    <span className="text-sm text-foreground-secondary">{m}</span>
-                  </label>
-                ))}
-                {materyaller.length > 0 && (
-                  <button
-                    onClick={() => updateURL({ materyaller: undefined })}
-                    className="mt-2 w-full text-center text-xs text-muted-darker hover:text-foreground-secondary underline"
-                  >
-                    Filtreleri Temizle
-                  </button>
+                {materyalQuery.isLoading ? (
+                  <LoadingSkeleton />
+                ) : materyalList.length === 0 ? (
+                  <EmptyState message="Materyal seçeneği bulunamadı" />
+                ) : (
+                  <>
+                    {materyalList.map((m) => (
+                      <label
+                        key={m}
+                        className="flex items-center gap-2 cursor-pointer px-1 py-1.5 rounded hover:bg-surface-alt transition"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={materyaller.includes(m)}
+                          onChange={() => {
+                            const newMateryaller = materyaller.includes(m)
+                              ? materyaller.filter((x) => x !== m)
+                              : [...materyaller, m];
+                            updateURL({
+                              materyaller: newMateryaller.length
+                                ? newMateryaller.join(",")
+                                : undefined,
+                            });
+                          }}
+                          className="accent-primary"
+                        />
+                        <span className="text-sm text-foreground-secondary">{m}</span>
+                      </label>
+                    ))}
+                    {materyaller.length > 0 && (
+                      <button
+                        onClick={() => updateURL({ materyaller: undefined })}
+                        className="mt-2 w-full text-center text-xs text-muted-darker hover:text-foreground-secondary underline"
+                      >
+                        Filtreleri Temizle
+                      </button>
+                    )}
+                  </>
                 )}
               </Popover.Content>
             </Popover.Portal>
@@ -374,7 +441,7 @@ export function FilterBar() {
                 align="start"
                 className={`${panel} ${contentClass}`}
               >
-                {sortOptions.map((opt) => (
+                {SIRALAMA_SECENEKLERI.map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() =>

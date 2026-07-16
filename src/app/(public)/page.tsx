@@ -4,7 +4,7 @@ import { getSliders } from "@/features/magaza/public-actions";
 import { getKategorilerAction } from "@/features/kategori/actions";
 import { getBannerListAction } from "@/features/banner/actions";
 import { getSabitAction } from "@/features/sabitler/actions";
-import { getPublicProducts } from "@/features/urun/public-actions";
+import { getOneCikanUrunlerAction } from "@/features/urun/public-actions";
 import { FavoriButton } from "@/components/FavoriButton";
 import Link from "next/link";
 import { Truck, Undo2, ShieldCheck, CreditCard, HeadphonesIcon } from "lucide-react";
@@ -47,8 +47,7 @@ async function KategoriMenu() {
 /* ---------- Öne Çıkan Ürünler ---------- */
 
 async function OneCikanUrunler() {
-  const urunler = await getPublicProducts();
-  const oneCikan = urunler.filter((u: any) => u.oneCikan).slice(0, 4);
+  const oneCikan = await getOneCikanUrunlerAction(4);
   if (oneCikan.length === 0) return null;
 
   return (

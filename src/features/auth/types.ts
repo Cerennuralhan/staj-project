@@ -26,6 +26,9 @@ export interface Bildirim {
   kullaniciId: string | ObjectId;
   baslik: string;
   mesaj: string;
+  tur: "stok_tukendi" | "siparis" | "garanti" | "kurulum" | "mesaj" | "diger";
+  ilgiliUrunId?: string | null;
+  linkUrl?: string;
   okunduMu: boolean;
   tarih: string;
   createdAt: string;

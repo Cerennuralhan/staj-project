@@ -26,7 +26,7 @@ export async function sepetDetayliGetirAction(uyeId?: string, misafirSepetId?: s
   if (!sepet || !sepet.urunler?.length) return { urunler: [], toplamTutar: 0 };
 
   const urunIds = sepet.urunler.map((u: any) => u.urunId);
-  const urunler = await Urun.find({ _id: { $in: urunIds } }).select("-stok").lean();
+  const urunler = await Urun.find({ _id: { $in: urunIds } }).lean();
   const urunMap = new Map(urunler.map((u: any) => [u._id.toString(), u]));
 
   const detayli = sepet.urunler.map((u: any) => {
@@ -37,6 +37,7 @@ export async function sepetDetayliGetirAction(uyeId?: string, misafirSepetId?: s
       urunAdi: urun?.urunAdi || "",
       kapakResmi: urun?.kapakResmi || "",
       fiyat: urun?.fiyat || 0,
+      stok: urun?.stok ?? 0,
     };
   });
 

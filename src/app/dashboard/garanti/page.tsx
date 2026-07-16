@@ -15,6 +15,28 @@ import {
   getKategoriListMinAction,
 } from "@/features/garanti/actions";
 
+async function downloadPdf(id: string) {
+  try {
+    const res = await fetch(`/api/warranty/${id}/pdf`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Bilinmeyen hata" }));
+      alert(`PDF indirilemedi: ${err.error || res.statusText}`);
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `garanti-belgesi-${id.slice(-6)}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert("PDF indirilirken bir hata oluştu.");
+  }
+}
+
 const talepRenk: Record<string, string> = { acik: "text-red-400", inceleniyor: "text-yellow-400", cozuldu: "text-green-400" };
 const talepLabels: Record<string, string> = { acik: "Açık", inceleniyor: "İnceleniyor", cozuldu: "Çözüldü" };
 const cozumLabels: Record<string, string> = { urun_incelendi: "Ürün İncelendi", kullanici_hatasi: "Kullanıcı Hatası" };
@@ -156,13 +178,12 @@ function TalepKarti({
               Düzenle
             </button>
           )}
-          <a
-            href={`/api/warranty/${garantiId}/pdf`}
-            download
-            className="px-2 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-300 hover:bg-zinc-700 print:hidden inline-block"
+          <button
+            onClick={() => downloadPdf(garantiId)}
+            className="px-2 py-0.5 rounded text-[10px] bg-zinc-800 text-zinc-300 hover:bg-zinc-700 print:hidden"
           >
             PDF İndir
-          </a>
+          </button>
         </div>
       </div>
 
@@ -211,14 +232,13 @@ function GarantiDetay({ id, onClose }: { id: string; onClose: () => void }) {
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold text-white">Garanti Detay</h2>
           <div className="flex items-center gap-2">
-            <a
-              href={`/api/warranty/${id}/pdf`}
-              download
+            <button
+              onClick={() => downloadPdf(id)}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors"
             >
               <FileDown size={14} />
               PDF İndir
-            </a>
+            </button>
             <button onClick={onClose} className="text-zinc-400 hover:text-white text-lg">&times;</button>
           </div>
         </div>
@@ -693,15 +713,13 @@ export default function GarantiPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-3 text-right">
-                  <a
-                    href={`/api/warranty/${g._id}/pdf`}
-                    download
-                    onClick={(e) => e.stopPropagation()}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); downloadPdf(g._id); }}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-500 text-white transition-colors print:hidden"
                   >
                     <FileDown size={14} />
                     PDF İndir
-                  </a>
+                  </button>
                   <div>
                     <p className={`text-sm font-medium ${g.durum === "aktif" ? "text-green-400" : "text-zinc-500"}`}>
                       {g.durum === "aktif" ? "Aktif" : "Süresi Doldu"}

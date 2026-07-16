@@ -5,7 +5,8 @@ import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { addTedarikciBelgeAction, deleteTedarikciBelgeAction } from "@/features/tedarikci/actions";
 import type { TedarikciBelge } from "@/features/tedarikci/types";
-import { Upload, X, FileText } from "lucide-react";
+import { Upload, X, FileText, FileSpreadsheet } from "lucide-react";
+import { FaturaOlusturModal } from "./fatura-olustur-modal";
 
 interface Props {
   tedarikciId: string;
@@ -17,6 +18,7 @@ export function BelgeUploadForm({ tedarikciId, belgeler }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [aciklama, setAciklama] = useState("");
   const [tur, setTur] = useState("fatura");
+  const [faturaModalOpen, setFaturaModalOpen] = useState(false);
 
   const refresh = () => router.refresh();
 
@@ -62,6 +64,22 @@ export function BelgeUploadForm({ tedarikciId, belgeler }: Props) {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Fatura Oluştur */}
+      <button
+        onClick={() => setFaturaModalOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-500 transition"
+      >
+        <FileSpreadsheet size={16} />
+        Fatura Oluştur
+      </button>
+
+      {faturaModalOpen && (
+        <FaturaOlusturModal
+          tedarikciId={tedarikciId}
+          onClose={() => { setFaturaModalOpen(false); refresh(); }}
+        />
       )}
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 space-y-3">

@@ -3,7 +3,9 @@
 import { auth } from "@/lib/auth/config";
 import { connectDB } from "@/lib/db";
 import { Slider, Galeri, Sayfa, IletisimMesaji, Magaza } from "./queries";
+import { Kullanici } from "@/features/auth/queries";
 import { Musteri } from "@/features/musteri/queries";
+import { hasPermission } from "@/lib/auth/permissions";
 import { logIslem } from "@/lib/audit";
 import type { SliderInput, GaleriInput, SayfaInput, MagazaInput } from "./schema";
 
@@ -107,6 +109,14 @@ export async function deleteSayfaAction(id: string) {
 }
 
 export async function getIletisimMesajlariAction() {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+
+  const kullanici = await Kullanici.findById(session.user.id).select("rol").lean();
+  if (!kullanici) return [];
+
+  if (!hasPermission((kullanici as any).rol as any, "mesaj")) return [];
+
   await connectDB();
   const docs = await IletisimMesaji.find().sort({ tarih: -1 }).lean();
   const epostalar = [...new Set(docs.filter(d => d.eposta).map(d => d.eposta))] as string[];

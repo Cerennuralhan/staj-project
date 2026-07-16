@@ -174,6 +174,7 @@ export default async function TedarikciDetayPage(props: {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-white truncate">{u.urunAdi}</p>
+                    <p className="text-[10px] text-zinc-600 font-mono">{u._id}</p>
                     <p className="text-xs text-zinc-500">{u.birim || "—"}</p>
                   </div>
                   <span className="text-xs text-zinc-400">{u.stok || 0} stok</span>

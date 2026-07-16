@@ -53,11 +53,14 @@ export const iletisimMesajiSchema = z.object({
 export const magazaSchema = z.object({
   magazaAdi: z.string().min(1, "Mağaza adı zorunludur"),
   telefon: z.string(),
+  eposta: z.string().optional().default(""),
   adres: z.string(),
   logo: z.string(),
   koordinat: z.object({ lat: z.number(), lng: z.number() }),
   disGorunusFotograflari: z.array(z.string()),
   defaultWarrantyPeriodMonths: z.number().int().min(1, "En az 1 ay").max(120, "En fazla 120 ay").default(24),
+  vergiDairesi: z.string().optional().default(""),
+  vergiNo: z.string().optional().default(""),
 });
 
 export type TedarikciInput = z.infer<typeof tedarikciSchema>;

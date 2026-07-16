@@ -60,16 +60,16 @@ export function SearchOverlay({ open, onClose }: Props) {
       <div className="mx-auto max-w-3xl px-4 pt-20">
         {/* Input satırı */}
         <div className="flex items-center gap-3 border-b-2 border-primary pb-2">
-          <Search size={24} className="text-muted shrink-0" />
+          <Search size={24} className="text-zinc-400 shrink-0" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ürün ara..."
-            className="flex-1 bg-transparent text-2xl text-foreground placeholder-muted-darker outline-none"
+            className="flex-1 bg-transparent text-2xl text-white placeholder-zinc-400 outline-none"
           />
           {isFetching && <Loader2 size={22} className="text-primary animate-spin shrink-0" />}
-          <button onClick={onClose} className="text-muted hover:text-foreground transition-colors shrink-0">
+          <button onClick={onClose} className="text-zinc-400 hover:text-white transition-colors shrink-0">
             <X size={28} />
           </button>
         </div>
@@ -78,7 +78,7 @@ export function SearchOverlay({ open, onClose }: Props) {
         {hasQuery && (
           <div className="mt-6 space-y-3 max-h-[60vh] overflow-y-auto">
             {results.length === 0 && !isFetching && (
-              <p className="text-muted-darker text-center py-10">Sonuç bulunamadı.</p>
+              <p className="text-zinc-400 text-center py-10">Sonuç bulunamadı.</p>
             )}
             {results.map((p: any) => (
               <Link
@@ -110,8 +110,8 @@ export function SearchOverlay({ open, onClose }: Props) {
               { label: "7/24 Destek", desc: "Canlı destek" },
             ].map((item, i) => (
               <div key={i} className="text-center">
-                <p className="text-sm font-semibold text-foreground">{item.label}</p>
-                <p className="text-xs text-muted-darker mt-0.5">{item.desc}</p>
+                <p className="text-sm font-semibold text-white">{item.label}</p>
+                <p className="text-xs text-zinc-400 mt-0.5">{item.desc}</p>
               </div>
             ))}
           </div>

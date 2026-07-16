@@ -1,4 +1,5 @@
 export const dynamic = "force-dynamic";
+import Image from "next/image";
 import { getPublicProducts } from "@/features/urun/public-actions";
 import { getKategorilerAction } from "@/features/kategori/actions";
 import Link from "next/link";
@@ -43,12 +44,13 @@ export default async function UrunlerPage({
           {products.map((p: any) => (
             <div key={p._id} className="group relative rounded-xl border border-border bg-card overflow-hidden hover:border-border-strong transition">
               <Link href={`/urunler/${p._id}`}>
-                {p.kapakResmi && (
-                  <div className="aspect-[4/3] bg-surface-alt overflow-hidden">
-                    <img
+                  {p.kapakResmi && (
+                  <div className="aspect-[4/3] bg-surface-alt overflow-hidden relative">
+                    <Image
                       src={p.kapakResmi}
                       alt={p.urunAdi}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                      fill
+                      className="object-cover group-hover:scale-105 transition duration-300"
                     />
                   </div>
                 )}

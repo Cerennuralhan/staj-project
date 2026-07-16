@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
@@ -14,13 +14,15 @@ import { CSS } from "@dnd-kit/utilities";
 import {
   getUrunListAction, getFiyatAraligiAction,
   getAllProductsAction, createProductAction, updateProductAction,
-  deleteProductAction, reorderImagesAction, getCloudinaryUploadParams,
+  deleteProductAction, reorderImagesAction, getCloudinaryUploadParams, deleteImageAction,
 } from "@/features/urun/actions";
 import { getKategorilerAction } from "@/features/kategori/actions";
 import { getDefaultWarrantyPeriodAction } from "@/features/magaza/actions";
 import { formatWarrantyPeriod } from "@/lib/warranty/calculateWarrantyEndDate";
 import type { Urun, UrunResim } from "@/features/urun/types";
 import type { Kategori } from "@/features/kategori/types";
+import Image from "next/image";
+import { ImageWithFallback } from "@/components/ui/ImageWithFallback";
 import {
   Plus, Search, X, ChevronLeft, ChevronRight, Loader2, ImageOff,
 } from "lucide-react";
@@ -42,7 +44,7 @@ function SortableImage({
 
   return (
     <div ref={setNodeRef} style={style} className="relative group">
-      <img src={img.resim} alt="" className="w-24 h-24 rounded object-cover border border-zinc-700" />
+      <ImageWithFallback src={img.resim} alt="" width={96} height={96} className="w-24 h-24 rounded object-cover border border-zinc-700" />
       <button
         {...attributes}
         {...listeners}
@@ -51,10 +53,12 @@ function SortableImage({
         ⠿
       </button>
       <button
-        onClick={onRemove}
-        className="absolute top-1 right-1 bg-red-700 text-white text-xs w-5 h-5 rounded-full opacity-0 group-hover:opacity-100"
+        type="button"
+        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemove(); }}
+        onPointerDown={(e) => e.stopPropagation()}
+        className="absolute top-1 right-1 bg-red-700 text-white text-xs w-5 h-5 rounded-full opacity-0 group-hover:opacity-100 flex items-center justify-center"
       >
-        ×
+        <X size={12} />
       </button>
     </div>
   );
@@ -73,6 +77,17 @@ function ProductForm({
   const queryClient = useQueryClient();
   const [warrantyUnit, setWarrantyUnit] = useState<"year" | "month">("year");
 
+  const initFiyat = editingProduct ? (editingProduct.fiyat?.toString() ?? "") : "";
+  const initStok = editingProduct ? (editingProduct.stok?.toString() ?? "") : "";
+
+  const [fiyatStr, setFiyatStr] = useState(initFiyat);
+  const [stokStr, setStokStr] = useState(initStok);
+
+  useEffect(() => {
+    setFiyatStr(editingProduct ? (editingProduct.fiyat?.toString() ?? "") : "");
+    setStokStr(editingProduct ? (editingProduct.stok?.toString() ?? "") : "");
+  }, [editingProduct?._id]);
+
   const [form, setForm] = useState({
     kategoriId: editingProduct?.kategoriId?.toString() ?? "",
     urunAdi: editingProduct?.urunAdi ?? "",
@@ -82,6 +97,7 @@ function ProductForm({
     kapakResmi: editingProduct?.kapakResmi ?? "",
     warrantyPeriodMonths: editingProduct?.warrantyPeriodMonths ?? 0,
     yayinlandiMi: editingProduct?.yayinlandiMi ?? true,
+    oneCikan: editingProduct?.oneCikan ?? false,
     resimler: editingProduct?.resimler ?? [],
   });
 
@@ -95,10 +111,15 @@ function ProductForm({
 
   const updateMutation = useMutation({
     mutationFn: async () => {
+      const payload = {
+        ...form,
+        fiyat: fiyatStr ? parseFloat(fiyatStr) : 0,
+        stok: stokStr ? parseInt(stokStr, 10) : 0,
+      };
       if (editingProduct) {
-        return updateProductAction(editingProduct._id, form);
+        return updateProductAction(editingProduct._id, payload);
       }
-      return createProductAction(form);
+      return createProductAction(payload);
     },
     onSuccess: (res) => {
       if (res.success) { queryClient.invalidateQueries({ queryKey: ["urunler"] }); onClose(); }
@@ -134,8 +155,14 @@ function ProductForm({
   }
 
   function removeImage(resim: string) {
-    const updated = form.resimler.filter((r) => r.resim !== resim).map((r, i) => ({ ...r, sira: i }));
-    setForm((p) => ({ ...p, resimler: updated }));
+    deleteImageAction(resim).catch(() => {});
+    const guncel = form.resimler.filter((r) => r.resim !== resim).map((r, i) => ({ ...r, sira: i }));
+    setForm((p) => ({ ...p, resimler: guncel }));
+    if (editingProduct) {
+      updateProductAction(editingProduct._id, { resimler: guncel }).then((r) => {
+        if (r.success) queryClient.invalidateQueries({ queryKey: ["urunler"] });
+      });
+    }
   }
 
   async function handleCloudinaryUpload() {
@@ -208,13 +235,41 @@ function ProductForm({
           </div>
           <div className="space-y-1">
             <label className="text-xs text-zinc-400">Fiyat (TL)</label>
-            <input type="number" value={form.fiyat} onChange={(e) => setForm((p) => ({ ...p, fiyat: Number(e.target.value) }))}
-              className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm outline-none" min="0" />
+            <input type="text" inputMode="decimal"
+              value={fiyatStr}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "" || /^\d+(\.\d{0,2})?$/.test(v)) {
+                  const cleaned = v.replace(/^0+(?=\d)/, "");
+                  setFiyatStr(cleaned);
+                }
+              }}
+              onBlur={() => {
+                const val = fiyatStr || "0";
+                const cleaned = val.replace(/^0+(?=\d)/, "") || "0";
+                setFiyatStr(cleaned);
+                setForm((p) => ({ ...p, fiyat: parseFloat(cleaned) }));
+              }}
+              className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm outline-none" />
           </div>
           <div className="space-y-1">
             <label className="text-xs text-zinc-400">Stok</label>
-            <input type="number" value={form.stok} onChange={(e) => setForm((p) => ({ ...p, stok: Number(e.target.value) }))}
-              className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm outline-none" min="0" />
+            <input type="text" inputMode="numeric"
+              value={stokStr}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "" || /^\d+$/.test(v)) {
+                  const cleaned = v.replace(/^0+(?=\d)/, "");
+                  setStokStr(cleaned);
+                }
+              }}
+              onBlur={() => {
+                const val = stokStr || "0";
+                const cleaned = val.replace(/^0+(?=\d)/, "") || "0";
+                setStokStr(cleaned);
+                setForm((p) => ({ ...p, stok: parseInt(cleaned, 10) }));
+              }}
+              className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm outline-none" />
           </div>
           <div className="space-y-1">
             <label className="text-xs text-zinc-400">Kapak Görseli URL</label>
@@ -262,6 +317,12 @@ function ProductForm({
               onChange={(e) => setForm((p) => ({ ...p, yayinlandiMi: e.target.checked }))}
               className="accent-blue-600" />
           </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-zinc-400">Öne Çıkan</label>
+            <input type="checkbox" checked={form.oneCikan}
+              onChange={(e) => setForm((p) => ({ ...p, oneCikan: e.target.checked }))}
+              className="accent-amber-500" />
+          </div>
         </div>
 
         {/* Resimler */}
@@ -273,15 +334,21 @@ function ProductForm({
               + Cloudinary Yükle
             </button>
           </div>
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleImageDragEnd}>
-            <SortableContext items={form.resimler.map((r) => r.resim)} strategy={verticalListSortingStrategy}>
-              <div className="flex flex-wrap gap-2">
-                {form.resimler.map((r) => (
-                  <SortableImage key={r.resim} img={r} onRemove={() => removeImage(r.resim)} />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          {form.resimler.length === 0 ? (
+            <p className="text-xs text-zinc-500 py-4 text-center border border-dashed border-zinc-700 rounded">
+              Henüz görsel eklenmedi
+            </p>
+          ) : (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleImageDragEnd}>
+              <SortableContext items={form.resimler.map((r) => r.resim)} strategy={verticalListSortingStrategy}>
+                <div className="flex flex-wrap gap-2">
+                  {form.resimler.map((r) => (
+                    <SortableImage key={r.resim} img={r} onRemove={() => removeImage(r.resim)} />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+          )}
         </div>
 
         <button onClick={() => updateMutation.mutate()}
@@ -300,9 +367,9 @@ function ProductCard({ urun, onEdit }: { urun: Urun; onEdit: (u: Urun) => void }
       onClick={() => onEdit(urun)}
       className="group cursor-pointer rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden hover:border-blue-600/50 transition-colors"
     >
-      <div className="aspect-square bg-zinc-800">
+      <div className="aspect-square bg-zinc-800 relative">
         {urun.kapakResmi ? (
-          <img src={urun.kapakResmi} alt={urun.urunAdi} className="w-full h-full object-cover" />
+          <Image src={urun.kapakResmi} alt={urun.urunAdi} fill className="object-cover" />
         ) : (
           <div className="flex items-center justify-center h-full text-zinc-600">
             <ImageOff size={28} />
@@ -341,6 +408,36 @@ export default function UrunPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Urun | null>(null);
+
+  const [fiyatOpen, setFiyatOpen] = useState(false);
+  const fiyatRef = useRef<HTMLDivElement>(null);
+  const [localMin, setLocalMin] = useState(minFiyatStr);
+  const [localMax, setLocalMax] = useState(maxFiyatStr);
+
+  useEffect(() => {
+    setLocalMin(minFiyatStr);
+    setLocalMax(maxFiyatStr);
+  }, [minFiyatStr, maxFiyatStr]);
+
+  useEffect(() => {
+    if (!fiyatOpen) return;
+    function handleClick(e: MouseEvent) {
+      if (fiyatRef.current && !fiyatRef.current.contains(e.target as Node)) {
+        setFiyatOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [fiyatOpen]);
+
+  useEffect(() => {
+    if (localMin === minFiyatStr && localMax === maxFiyatStr) return;
+    const timer = setTimeout(() => {
+      setParam("minFiyat", localMin);
+      setParam("maxFiyat", localMax);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [localMin, localMax, minFiyatStr, maxFiyatStr]);
 
   const setParam = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -465,26 +562,62 @@ export default function UrunPage() {
         </select>
 
         {/* Fiyat Aralığı */}
-        <div className="flex items-center gap-1.5">
-          <input
-            type="number"
-            placeholder="Min"
-            value={minFiyatStr}
-            onChange={(e) => setParam("minFiyat", e.target.value)}
-            min={fiyatAraligi?.min ?? 0}
-            max={fiyatAraligi?.max ?? 0}
-            className="w-20 rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-2 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
-          />
-          <span className="text-zinc-500 text-xs">-</span>
-          <input
-            type="number"
-            placeholder="Maks"
-            value={maxFiyatStr}
-            onChange={(e) => setParam("maxFiyat", e.target.value)}
-            min={fiyatAraligi?.min ?? 0}
-            max={fiyatAraligi?.max ?? 0}
-            className="w-20 rounded-lg bg-zinc-800 border border-zinc-700 px-2.5 py-2 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
-          />
+        <div ref={fiyatRef} className="relative">
+          <button
+            onClick={() => setFiyatOpen((p) => !p)}
+            className={`rounded-lg border px-3 py-2 text-sm transition ${
+              (minFiyatStr || maxFiyatStr)
+                ? "border-blue-500 bg-blue-500/10 text-blue-400"
+                : "border-zinc-700 bg-zinc-800 text-white hover:border-zinc-500"
+            }`}
+          >
+            {minFiyatStr || maxFiyatStr
+              ? `₺${minFiyatStr || "0"} - ₺${maxFiyatStr || "∞"}`
+              : "Fiyat Aralığı"}
+          </button>
+          {fiyatOpen && (
+            <div className="absolute left-0 top-full z-50 mt-1 w-64 rounded-lg border border-zinc-700 bg-zinc-800 p-3 shadow-xl">
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  placeholder="Min ₺"
+                  value={localMin}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setLocalMin(v);
+                  }}
+                  min={0}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+                />
+                <span className="text-zinc-500 text-xs">-</span>
+                <input
+                  type="number"
+                  placeholder="Maks ₺"
+                  value={localMax}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setLocalMax(v);
+                  }}
+                  min={0}
+                  className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-2 text-sm text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none"
+                />
+              </div>
+              {(minFiyatStr || maxFiyatStr) && (
+                <button
+                  onClick={() => {
+                    setLocalMin("");
+                    setLocalMax("");
+                    setFiyatOpen(false);
+                    setParam("minFiyat", "");
+                    setParam("maxFiyat", "");
+                  }}
+                  className="mt-2 text-xs text-zinc-500 hover:text-zinc-300 transition"
+                >
+                  Temizle
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Sıralama */}

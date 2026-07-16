@@ -45,11 +45,14 @@ const MagazaSchema = new Schema(
   {
     magazaAdi: { type: String, required: true },
     telefon: { type: String, default: "" },
+    eposta: { type: String, default: "" },
     adres: { type: String, default: "" },
     logo: { type: String, default: "" },
     koordinat: { type: { lat: Number, lng: Number }, default: { lat: 0, lng: 0 } },
     disGorunusFotograflari: { type: [String], default: [] },
     defaultWarrantyPeriodMonths: { type: Number, default: 24, min: 1, max: 120 },
+    vergiDairesi: { type: String, default: "" },
+    vergiNo: { type: String, default: "" },
   },
   { timestamps: true },
 );

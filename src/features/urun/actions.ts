@@ -8,7 +8,7 @@ import { urunSchema } from "./schema";
 import type { Urun as UrunType } from "./types";
 import { logIslem } from "@/lib/audit";
 import { revalidatePath } from "next/cache";
-import { getUploadParams } from "@/lib/cloudinary";
+import { getUploadParams, deleteImage } from "@/lib/cloudinary";
 
 export async function getProductsAction(): Promise<UrunType[]> {
   await connectDB();
@@ -44,8 +44,46 @@ export async function updateProductAction(id: string, input: unknown) {
   if (!session?.user?.id) return { success: false, error: "Oturum gerekli" };
 
   await connectDB();
+  const oldProduct = await Urun.findById(id).lean();
+  if (parsed.data.resimler || parsed.data.kapakResmi !== undefined) {
+    const oldUrls = new Set([
+      ...((oldProduct as any)?.resimler ?? []).map((r: any) => r.resim),
+      ...((oldProduct as any)?.kapakResmi ? [(oldProduct as any).kapakResmi] : []),
+    ]);
+    const newResimler = (parsed.data as any).resimler ?? [];
+    const newUrls = new Set([
+      ...newResimler.map((r: any) => r.resim),
+      ...((parsed.data as any).kapakResmi ? [(parsed.data as any).kapakResmi] : []),
+    ]);
+    for (const url of oldUrls) {
+      if (!newUrls.has(url)) {
+        await deleteImage(url).catch(() => {});
+      }
+    }
+  }
   const product = await Urun.findByIdAndUpdate(id, { $set: parsed.data }, { new: true }).lean();
   if (!product) return { success: false, error: "Ürün bulunamadı" };
+
+  /* Admin stoku 0 yaparsa bildirim gönder */
+  const eskiStok = (oldProduct as any)?.stok ?? 0;
+  const yeniStok = (product as any).stok;
+  if (eskiStok > 0 && yeniStok <= 0) {
+    try {
+      const { Kullanici, Bildirim } = await import("@/features/auth/queries");
+      const adminler = await Kullanici.find({ rol: { $in: ["admin", "satis"] } }).select("_id").lean();
+      const bildirimDocs = adminler.map((a: any) => ({
+        kullaniciId: a._id,
+        baslik: "Stok Tükendi",
+        mesaj: `${(product as any).urunAdi} stokta tükendi.`,
+        tur: "stok_tukendi",
+        ilgiliUrunId: id,
+        linkUrl: `/dashboard/urun?q=${encodeURIComponent((product as any).urunAdi)}&highlight=stok`,
+        okunduMu: false,
+        tarih: new Date(),
+      }));
+      await Bildirim.insertMany(bildirimDocs);
+    } catch {}
+  }
 
   await logIslem(session.user.id, "guncelle", "urunler");
   revalidatePath("/dashboard/urun");
@@ -57,6 +95,14 @@ export async function deleteProductAction(id: string) {
   if (!session?.user?.id) return { success: false, error: "Oturum gerekli" };
 
   await connectDB();
+  const product = await Urun.findById(id).lean();
+  if (product) {
+    const allImages = [
+      ...((product as any).resimler ?? []).map((r: any) => r.resim),
+      ...((product as any).kapakResmi ? [(product as any).kapakResmi] : []),
+    ];
+    await Promise.allSettled(allImages.map((url: string) => deleteImage(url)));
+  }
   await Urun.findByIdAndDelete(id);
   await logIslem(session.user.id, "sil", "urunler");
   revalidatePath("/dashboard/urun");
@@ -71,6 +117,13 @@ export async function reorderImagesAction(productId: string, resimler: { resim: 
   await Urun.findByIdAndUpdate(productId, { $set: { resimler } });
   await logIslem(session.user.id, "guncelle", "urunler");
   revalidatePath("/dashboard/urun");
+  return { success: true };
+}
+
+export async function deleteImageAction(url: string) {
+  const session = await auth();
+  if (!session?.user?.id) return { success: false, error: "Oturum gerekli" };
+  await deleteImage(url);
   return { success: true };
 }
 

@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
+import Image from "next/image";
 import { getPublicProductById } from "@/features/urun/public-actions";
-import { getUrunAktifGarantiSayisiAction } from "@/features/garanti/actions";
 import { notFound } from "next/navigation";
 import { FavoriButton } from "@/components/FavoriButton";
 import { UrunDetayActions } from "@/components/UrunDetayActions";
@@ -11,10 +11,7 @@ export default async function UrunDetayPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const [urun, aktifGaranti] = await Promise.all([
-    getPublicProductById(id),
-    getUrunAktifGarantiSayisiAction(id),
-  ]);
+  const urun = await getPublicProductById(id);
   if (!urun) notFound();
 
   const images = [
@@ -28,10 +25,15 @@ export default async function UrunDetayPage({
         {/* Galeri */}
         <div>
           {images.length > 0 ? (
-            <div className="grid grid-cols-2 gap-3">
+            <div className={`grid ${images.length === 1 ? "grid-cols-1" : "grid-cols-2"} gap-3`}>
               {images.map((img: any, i: number) => (
-                <div key={i} className="aspect-square bg-surface-alt rounded-xl overflow-hidden">
-                  <img src={img.resim} alt="" className="w-full h-full object-cover" />
+                <div key={i} className="aspect-square bg-surface-alt rounded-xl overflow-hidden relative">
+                  <Image
+                    src={img.resim}
+                    alt=""
+                    fill
+                    className="object-cover"
+                  />
                 </div>
               ))}
             </div>
@@ -88,9 +90,6 @@ export default async function UrunDetayPage({
             />
           </div>
 
-          <p className="text-sm text-accent mt-4">
-            Aktif Garanti: {aktifGaranti} adet
-          </p>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { connectDB } from "@/lib/db";
 import { Slider, Galeri, Sayfa, IletisimMesaji, Magaza } from "./queries";
+import { Kullanici, Bildirim } from "@/features/auth/queries";
 
 export async function getSliders() {
   await connectDB();
@@ -35,7 +36,27 @@ export async function submitIletisim(input: {
 }) {
   try {
     await connectDB();
-    await IletisimMesaji.create({ ...input, tarih: new Date() });
+    const kayit = await IletisimMesaji.create({ ...input, tarih: new Date() });
+    const mesajId = kayit._id.toString();
+
+    const hedefKullanicilar = await Kullanici.find({
+      rol: { $in: ["admin", "satis"] },
+      aktifMi: true,
+    }).select("_id").lean();
+
+    if (hedefKullanicilar.length > 0) {
+      const bildirimler = hedefKullanicilar.map((k) => ({
+        kullaniciId: k._id,
+        baslik: "Yeni İletişim Mesajı",
+        mesaj: `${input.adSoyad} - ${input.mesaj.slice(0, 100)}${input.mesaj.length > 100 ? "..." : ""}`,
+        tur: "mesaj" as const,
+        linkUrl: `/dashboard/mesajlar?highlight=${mesajId}`,
+        okunduMu: false,
+        tarih: new Date(),
+      }));
+      await Bildirim.insertMany(bildirimler);
+    }
+
     return { success: true };
   } catch (err) {
     console.error("Iletisim mesaji kayit hatasi:", err);

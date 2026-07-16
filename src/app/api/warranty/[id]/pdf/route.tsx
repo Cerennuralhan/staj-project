@@ -9,6 +9,7 @@ import { Siparis } from "@/features/siparis/queries";
 import { Magaza } from "@/features/magaza/queries";
 import { Kurulum } from "@/features/kurulum/queries";
 import { hasPermission } from "@/lib/auth/permissions";
+import { renderToBuffer } from "@react-pdf/renderer";
 import WarrantyPdfDocument from "@/components/pdf/WarrantyPdfDocument";
 import { formatWarrantyPeriod } from "@/lib/warranty/calculateWarrantyEndDate";
 import React from "react";
@@ -99,8 +100,6 @@ export async function GET(
       : undefined;
 
     const documentDate = formatDate(new Date());
-
-    const { renderToBuffer } = await import("@react-pdf/renderer");
 
     const pdfBuffer = await renderToBuffer(
       <WarrantyPdfDocument

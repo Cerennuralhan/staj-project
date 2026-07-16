@@ -34,6 +34,8 @@ export const Urun = models.Urun || model("Urun", UrunSchema);
 export async function checkAndDecrementStock(
   items: { urunId: string; adet: number }[],
 ): Promise<{ success: true } | { success: false; error: string }> {
+  const stokBitenUrunler: { id: string; adi: string }[] = [];
+
   for (const item of items) {
     const urun = await Urun.findById(item.urunId).select("urunAdi stok").lean();
     if (!urun) return { success: false, error: "Ürün bulunamadı" };
@@ -45,8 +47,33 @@ export async function checkAndDecrementStock(
     }
   }
   for (const item of items) {
-    await Urun.findByIdAndUpdate(item.urunId, { $inc: { stok: -item.adet } });
+    const yeniStok = (await Urun.findByIdAndUpdate(item.urunId, { $inc: { stok: -item.adet } }, { new: true }).select("stok")) as any;
+    if (yeniStok && yeniStok.stok <= 0) {
+      const urun = await Urun.findById(item.urunId).select("urunAdi").lean() as any;
+      stokBitenUrunler.push({ id: item.urunId.toString(), adi: urun?.urunAdi || "Ürün" });
+    }
   }
+
+  /* Stok biten ürünler için adminlere bildirim gönder */
+  if (stokBitenUrunler.length > 0) {
+    try {
+      const { Kullanici } = await import("@/features/auth/queries");
+      const { Bildirim } = await import("@/features/auth/queries");
+      const adminler = await Kullanici.find({ rol: { $in: ["admin", "satis"] } }).select("_id").lean();
+      const bildirimDocs = adminler.map((a: any) => ({
+        kullaniciId: a._id,
+        baslik: "Stok Tükendi",
+        mesaj: stokBitenUrunler.map((u) => u.adi).join(", ") + " stokta tükendi.",
+        tur: "stok_tukendi",
+        ilgiliUrunId: stokBitenUrunler[0].id,
+        linkUrl: `/dashboard/urun?q=${encodeURIComponent(stokBitenUrunler[0].adi)}&highlight=stok`,
+        okunduMu: false,
+        tarih: new Date(),
+      }));
+      await Bildirim.insertMany(bildirimDocs);
+    } catch {}
+  }
+
   return { success: true };
 }
 

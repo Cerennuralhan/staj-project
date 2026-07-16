@@ -133,9 +133,10 @@ function MagazaAyarlariTab() {
   const qc = useQueryClient();
   const { data: magaza } = useQuery({ queryKey: ["magaza"], queryFn: getMagazaAction });
   const [form, setForm] = useState({
-    magazaAdi: "", telefon: "", adres: "", logo: "",
+    magazaAdi: "", telefon: "", eposta: "", adres: "", logo: "",
     koordinat: { lat: 0, lng: 0 }, disGorunusFotograflari: [""],
     defaultWarrantyPeriodMonths: 24,
+    vergiDairesi: "", vergiNo: "",
   });
   const [loaded, setLoaded] = useState(false);
 
@@ -155,6 +156,11 @@ function MagazaAyarlariTab() {
       <input value={form.telefon} onChange={(e) => setForm((p) => ({ ...p, telefon: e.target.value }))} placeholder="Telefon" className="p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm" />
       <input value={form.logo} onChange={(e) => setForm((p) => ({ ...p, logo: e.target.value }))} placeholder="Logo URL" className="p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm" />
     </div>
+    <div className="grid grid-cols-2 gap-3">
+      <input value={form.eposta} onChange={(e) => setForm((p) => ({ ...p, eposta: e.target.value }))} placeholder="E-posta" type="email" className="p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm" />
+      <input value={form.vergiDairesi} onChange={(e) => setForm((p) => ({ ...p, vergiDairesi: e.target.value }))} placeholder="Vergi Dairesi" className="p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm" />
+    </div>
+    <input value={form.vergiNo} onChange={(e) => setForm((p) => ({ ...p, vergiNo: e.target.value }))} placeholder="Vergi No" className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm" />
     <textarea value={form.adres} onChange={(e) => setForm((p) => ({ ...p, adres: e.target.value }))} placeholder="Adres" rows={3} className="w-full p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm" />
     <div className="grid grid-cols-2 gap-3">
       <input value={form.koordinat.lat} onChange={(e) => setForm((p) => ({ ...p, koordinat: { ...p.koordinat, lat: Number(e.target.value) } }))} type="number" placeholder="Enlem" className="p-2 rounded bg-zinc-800 border border-zinc-700 text-white text-sm" />

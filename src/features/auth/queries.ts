@@ -11,7 +11,7 @@ const IslemKaydiSchema = new Schema(
 );
 
 const BildirimSchema = new Schema(
-  { kullaniciId: { type: Schema.Types.ObjectId, ref: "Kullanici", required: true }, baslik: { type: String, required: true }, mesaj: { type: String, required: true }, okunduMu: { type: Boolean, default: false }, tarih: { type: Date, default: Date.now } },
+  { kullaniciId: { type: Schema.Types.ObjectId, ref: "Kullanici", required: true }, baslik: { type: String, required: true }, mesaj: { type: String, required: true },   tur: { type: String, enum: ["stok_tukendi", "siparis", "garanti", "kurulum", "mesaj", "diger"], default: "diger" }, ilgiliUrunId: { type: Schema.Types.ObjectId, ref: "Urun", default: null }, linkUrl: { type: String, default: "" }, okunduMu: { type: Boolean, default: false }, tarih: { type: Date, default: Date.now } },
   { timestamps: true },
 );
 

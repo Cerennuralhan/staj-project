@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   getMusteriListAction, getMusteriOzetAction, getAllMusteriListAction,
   getBultenAboneListAction,
@@ -90,6 +91,7 @@ function MusteriFormModal({ onClose, initial, onSave, loading }: {
 /* ---------- Ana Sayfa ---------- */
 export default function MusteriPage() {
   const queryClient = useQueryClient();
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -225,7 +227,18 @@ export default function MusteriPage() {
                 <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-zinc-500">Müşteri bulunamadı.</td></tr>
               ) : (
                 data?.data?.map((m: Musteri) => (
-                  <tr key={m._id} className="bg-zinc-900 hover:bg-zinc-800/60 transition-colors">
+                  <tr key={m._id}
+                    onClick={() => router.push(`/dashboard/musteri/${m._id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(`/dashboard/musteri/${m._id}`);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    className="bg-zinc-900 hover:bg-zinc-800/60 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                  >
                     <td className="px-4 py-3">
                       <p className="text-white font-medium truncate max-w-[180px]">{m.adSoyad}</p>
                       {m.uyeId && <span className="inline-block mt-0.5 rounded-full bg-blue-900/40 border border-blue-800 px-2 py-0.5 text-[10px] font-medium text-blue-300">Online</span>}
@@ -233,17 +246,17 @@ export default function MusteriPage() {
                     <td className="px-4 py-3 text-zinc-300">{m.telefon || "—"}</td>
                     <td className="px-4 py-3 text-zinc-300 hidden md:table-cell">{m.eposta || "—"}</td>
                     <td className="px-4 py-3 text-zinc-300 hidden lg:table-cell truncate max-w-[200px]">{m.adres || "—"}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         <Link href={`/dashboard/musteri/${m._id}`}
                           className="p-1.5 rounded text-zinc-400 hover:text-blue-400 hover:bg-zinc-800 transition" title="Görüntüle">
                           <Eye size={15} />
                         </Link>
-                        <button onClick={() => setEditTarget(m)}
+                        <button type="button" onClick={(e) => { e.stopPropagation(); setEditTarget(m); }}
                           className="p-1.5 rounded text-zinc-400 hover:text-amber-400 hover:bg-zinc-800 transition" title="Düzenle">
                           <Pencil size={15} />
                         </button>
-                        <button onClick={() => { if (confirm("Bu müşteriyi silmek istediğinize emin misiniz?")) deleteMut.mutate(m._id); }}
+                        <button type="button" onClick={(e) => { e.stopPropagation(); if (confirm("Bu müşteriyi silmek istediğinize emin misiniz?")) deleteMut.mutate(m._id); }}
                           className="p-1.5 rounded text-zinc-400 hover:text-red-400 hover:bg-zinc-800 transition" title="Sil">
                           <Trash2 size={15} />
                         </button>

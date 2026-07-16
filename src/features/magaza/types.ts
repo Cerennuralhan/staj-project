@@ -65,9 +65,12 @@ export interface Magaza {
   _id: string;
   magazaAdi: string;
   telefon: string;
+  eposta: string;
   adres: string;
   logo: string;
   koordinat: { lat: number; lng: number };
   disGorunusFotograflari: string[];
   defaultWarrantyPeriodMonths: number;
+  vergiDairesi: string;
+  vergiNo: string;
 }
